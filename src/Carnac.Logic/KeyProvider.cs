@@ -10,15 +10,18 @@ using Carnac.Logic.KeyMonitor;
 using Carnac.Logic.Models;
 using Microsoft.Win32;
 using System.Windows.Media;
+using SettingsProviderNet;
+using System.Text.RegularExpressions;
 
 namespace Carnac.Logic
 {
     public class KeyProvider : IKeyProvider
     {
         readonly IInterceptKeys interceptKeysSource;
-        readonly Dictionary<int, Process> processes;
         readonly IPasswordModeService passwordModeService;
         readonly IDesktopLockEventService desktopLockEventService;
+        readonly PopupSettings settings;
+        string currentFilter = null;
 
         private readonly IList<Keys> modifierKeys =
             new List<Keys>
@@ -38,18 +41,45 @@ namespace Carnac.Logic
 
         private bool winKeyPressed;
 
-        [DllImport("User32.dll")]
-        private static extern int GetForegroundWindow();
-
-        [DllImport("user32.dll")]
-        private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
-
-        public KeyProvider(IInterceptKeys interceptKeysSource, IPasswordModeService passwordModeService, IDesktopLockEventService desktopLockEventService)
+        public KeyProvider(IInterceptKeys interceptKeysSource, IPasswordModeService passwordModeService, IDesktopLockEventService desktopLockEventService, ISettingsProvider settingsProvider)
         {
-            processes = new Dictionary<int, Process>();
+            if (settingsProvider == null)
+            {
+                throw new ArgumentNullException(nameof(settingsProvider));
+            }
+
             this.interceptKeysSource = interceptKeysSource;
             this.passwordModeService = passwordModeService;
             this.desktopLockEventService = desktopLockEventService;
+
+            settings = settingsProvider.GetSettings<PopupSettings>();
+        }
+
+        private bool ShouldFilterProcess(out Regex filterRegex)
+        {
+            filterRegex = null;
+            if (settings?.ProcessFilterExpression != currentFilter)
+            {
+                currentFilter = settings?.ProcessFilterExpression;
+
+                if (!string.IsNullOrEmpty(currentFilter))
+                {
+                    try
+                    {
+                        filterRegex = new Regex(currentFilter, RegexOptions.IgnoreCase | RegexOptions.Compiled, TimeSpan.FromSeconds(1));
+                    }
+                    catch
+                    {
+                        filterRegex = null;
+                    }
+                }
+                else
+                {
+                    filterRegex = null;
+                }
+            }
+
+            return (filterRegex != null);
         }
 
         public IObservable<KeyPress> GetKeyStream()
@@ -70,6 +100,7 @@ namespace Carnac.Logic
                     .Select(DetectWindowsKey)
                     .Where(k => !IsModifierKeyPress(k) && k.KeyDirection == KeyDirection.Down)
                     .Select(ToCarnacKeyPress)
+                    .Where(keypress => keypress != null)
                     .Where(k => !passwordModeService.CheckPasswordMode(k.InterceptKeyEventArgs))
                     .Subscribe(observer);
 
@@ -97,7 +128,18 @@ namespace Carnac.Logic
 
         KeyPress ToCarnacKeyPress(InterceptKeyEventArgs interceptKeyEventArgs)
         {
-            var process = GetAssociatedProcess();
+            var process = AssociatedProcessUtilities.GetAssociatedProcess();
+            if (process == null)
+            {
+                return null;
+            }
+
+            // see if this process is one being filtered for
+            Regex filterRegex;
+            if (ShouldFilterProcess(out filterRegex) && !filterRegex.IsMatch(process.ProcessName))
+            {
+                return null;
+            }
 
             var isLetter = interceptKeyEventArgs.IsLetter();
             var inputs = ToInputs(isLetter, winKeyPressed, interceptKeyEventArgs).ToArray();
@@ -107,7 +149,7 @@ namespace Carnac.Logic
                 ImageSource image = IconUtilities.GetProcessIconAsImageSource(processFileName);
                 return new KeyPress(new ProcessInfo(process.ProcessName, image), interceptKeyEventArgs, winKeyPressed, inputs);
             }
-            catch (System.Exception)
+            catch (Exception)
             {
                 return new KeyPress(new ProcessInfo(process.ProcessName), interceptKeyEventArgs, winKeyPressed, inputs); ;
             }
@@ -148,25 +190,6 @@ namespace Carnac.Logic
                 else
                     yield return interceptKeyEventArgs.Key.Sanitise();
             }
-        }
-
-        Process GetAssociatedProcess()
-        {
-            Process process;
-
-            var handle = GetForegroundWindow();
-
-            if (!processes.ContainsKey(handle))
-            {
-                uint processId;
-                GetWindowThreadProcessId(new IntPtr(handle), out processId);
-                var p = Process.GetProcessById(Convert.ToInt32(processId));
-                processes.Add(handle, p);
-                process = p;
-            }
-            else
-                process = processes[handle];
-            return process;
         }
     }
 }

@@ -1,25 +1,57 @@
-version: 1.0.0.{build}
+version: 2.2.{build}
 configuration: Release
+skip_branch_with_pr: true
+skip_tags: false
 assembly_info:
-  patch: true
-  file: '**\AssemblyInfo.*'
-  assembly_version: '{version}'
-  assembly_file_version: '{version}'
-  assembly_informational_version: '{version}'
+  patch: false
+branches:
+  only:
+    - master
+    - \d*\.\d*\.\d*/
 environment:
   Version: $(APPVEYOR_BUILD_VERSION)
   GithubRepo: $(APPVEYOR_REPO_NAME)
+  GithubAuthToken:
+    secure: qgh2y38nOEG/eAnQe0EwNSqMDSXf9akPDwJI5Yasvyiemh5GBbbzkDIleAhGak6i
 build_script:
-- build.cmd Release
+- ps: .\build.ps1 -Configuration Release -Experimental
 test:
   assemblies:
     - '**\Carnac.Tests.dll'
 artifacts:
-- path: deploy\*.nupkg
+- path: deploy\Chocolatey\*.nupkg
   name: ChocoPackage
-- path: deploy\*.zip
+- path: deploy\GitHub\*.zip
   name: ZipPackage
+- path: deploy\Squirrel\Releases\*
+  name: SquirrelPackage
+- path: deploy\Checksums\*.txt
+  name: Checksums
 deploy:
+- provider: GitHub
+  auth_token:
+    secure: qgh2y38nOEG/eAnQe0EwNSqMDSXf9akPDwJI5Yasvyiemh5GBbbzkDIleAhGak6i
+  artifact: ZipPackage
+  draft: false
+  on:
+    branch: master
+    APPVEYOR_REPO_TAG: true
+- provider: GitHub
+  auth_token:
+    secure: qgh2y38nOEG/eAnQe0EwNSqMDSXf9akPDwJI5Yasvyiemh5GBbbzkDIleAhGak6i
+  artifact: SquirrelPackage
+  draft: false
+  on:
+    branch: master
+    APPVEYOR_REPO_TAG: true
+- provider: GitHub
+  auth_token:
+    secure: qgh2y38nOEG/eAnQe0EwNSqMDSXf9akPDwJI5Yasvyiemh5GBbbzkDIleAhGak6i
+  artifact: Checksums
+  draft: false
+  on:
+    branch: master
+    APPVEYOR_REPO_TAG: true
 - provider: NuGet
   server: https://chocolatey.org/
   api_key:
@@ -28,10 +60,4 @@ deploy:
   artifact: ChocoPackage
   on:
     branch: master
-- provider: GitHub
-  auth_token:
-    secure: ImWN38cmVAwBXYkDM1L6kxkkOlrB05vD5vGMQh8bFc/GecEiwvtsemQXYmCozxBe
-  artifact: ZipPackage
-  draft: false
-  on:
-    branch: master
+    APPVEYOR_REPO_TAG: true

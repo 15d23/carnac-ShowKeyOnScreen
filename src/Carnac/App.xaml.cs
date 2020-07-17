@@ -1,10 +1,15 @@
-﻿using System.Windows;
+﻿using System;
+using System.IO;
+using System.Net;
+using System.Reactive.Linq;
+using System.Windows;
 using Carnac.Logic;
 using Carnac.Logic.KeyMonitor;
 using Carnac.Logic.Models;
 using Carnac.UI;
 using Carnac.Utilities;
 using SettingsProviderNet;
+using Squirrel;
 
 namespace Carnac
 {
@@ -17,16 +22,21 @@ namespace Carnac
         CarnacTrayIcon trayIcon;
         KeysController carnac;
 
+#if !DEBUG
+        readonly string carnacUpdateUrl = "https://github.com/Code52/carnac";
+#endif
+
         public App()
         {
-            var keyProvider = new KeyProvider(InterceptKeys.Current, new PasswordModeService(), new DesktopLockEventService());
             settingsProvider = new SettingsProvider(new RoamingAppDataStorage("Carnac"));
             settings = settingsProvider.GetSettings<PopupSettings>();
-            messageProvider = new MessageProvider(new ShortcutProvider(), keyProvider, settings, new MessageMerger());
+            var keyProvider = new KeyProvider(InterceptKeys.Current, new PasswordModeService(), new DesktopLockEventService(), settingsProvider);
+            messageProvider = new MessageProvider(new ShortcutProvider(), keyProvider, settings);
         }
 
         protected override void OnStartup(StartupEventArgs e)
         {
+            ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
             // Check if there was instance before this. If there was-close the current one.  
             if (ProcessUtilities.ThisProcessIsAlreadyRunning())
             {
@@ -41,8 +51,30 @@ namespace Carnac
             keyShowView = new KeyShowView(keyShowViewModel);
             keyShowView.Show();
 
-            carnac = new KeysController(keyShowViewModel.Messages, messageProvider, new ConcurrencyService());
+            carnac = new KeysController(keyShowViewModel.Messages, messageProvider, new ConcurrencyService(), settingsProvider);
             carnac.Start();
+
+#if !DEBUG
+            if (settings.AutoUpdate)
+            {
+                Observable
+                    .Timer(TimeSpan.FromMinutes(5))
+                    .Subscribe(async x =>
+                    {
+                        try
+                        {
+                            using (var mgr = UpdateManager.GitHubUpdateManager(carnacUpdateUrl))
+                            {
+                                await mgr.Result.UpdateApp();
+                            }
+                        }
+                        catch
+                        {
+                            // Do something useful with the exception
+                        }
+                    });
+            }
+#endif
 
             base.OnStartup(e);
         }

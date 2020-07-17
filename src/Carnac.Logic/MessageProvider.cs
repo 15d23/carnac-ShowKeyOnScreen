@@ -9,13 +9,11 @@ namespace Carnac.Logic
         readonly IShortcutProvider shortcutProvider;
         readonly IKeyProvider keyProvider;
         readonly PopupSettings settings;
-        readonly IMessageMerger messageMerger;
 
-        public MessageProvider(IShortcutProvider shortcutProvider, IKeyProvider keyProvider, PopupSettings settings, IMessageMerger messageMerger)
+        public MessageProvider(IShortcutProvider shortcutProvider, IKeyProvider keyProvider, PopupSettings settings)
         {
             this.shortcutProvider = shortcutProvider;
             this.keyProvider = keyProvider;
-            this.messageMerger = messageMerger;
             this.settings = settings;
         }
 
@@ -38,8 +36,23 @@ namespace Carnac.Logic
                 .Scan(new ShortcutAccumulator(), (acc, key) => acc.ProcessKey(shortcutProvider, key))
                 .Where(c => c.HasCompletedValue)
                 .SelectMany(c => c.GetMessages())
-                .Scan(new Message(), (acc, key) => messageMerger.MergeIfNeeded(acc, key))
-                .Where(m => !settings.DetectShortcutsOnly || m.IsShortcut);
+                .Scan(new Message(), (acc, key) => Message.MergeIfNeeded(acc, key))
+                .Where(m =>
+                {
+                    if (settings.DetectShortcutsOnly && settings.ShowOnlyModifiers)
+                    {
+                        return m.IsShortcut && m.IsModifier;
+                    }
+                    if (settings.DetectShortcutsOnly)
+                    {
+                        return m.IsShortcut;
+                    }
+                    if (settings.ShowOnlyModifiers)
+                    {
+                        return m.IsModifier;
+                    }
+                    return true;
+                });
         }
     }
 }

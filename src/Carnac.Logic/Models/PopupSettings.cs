@@ -13,6 +13,9 @@ namespace Carnac.Logic.Models
         [DefaultValue(0.5)]
         public double ItemOpacity { get; set; }
 
+        [DefaultValue(5)]
+        public double ItemFadeDelay { get; set; }
+
         [DefaultValue("Black")]
         public string ItemBackgroundColor { get; set; }
 
@@ -26,6 +29,9 @@ namespace Carnac.Logic.Models
 
         [NotifyProperty(AlsoNotifyFor = new[] { "ScaleTransform", "Alignment" })]
         public NotificationPlacement Placement { get; set; }
+
+        [DefaultValue(false)]
+        public bool AutoUpdate { get; set; }
 
         //Used to determine which from it's leftmost co-ord
         double left;
@@ -49,6 +55,7 @@ namespace Carnac.Logic.Models
 
         [NotifyProperty(AlsoNotifyFor = new[] { "Margins" })]
         public int TopOffset { get; set; }
+
         [NotifyProperty(AlsoNotifyFor = new[] { "Margins" })]
         public int BottomOffset { get; set; }
 
@@ -57,6 +64,9 @@ namespace Carnac.Logic.Models
 
         [NotifyProperty(AlsoNotifyFor = new[] { "Margins" })]
         public int RightOffset { get; set; }
+
+        [DefaultValue("")]
+        public string ProcessFilterExpression { get; set;  }
 
         public double ScaleTransform
         {
@@ -81,5 +91,7 @@ namespace Carnac.Logic.Models
         public bool DetectShortcutsOnly { get; set; }
         public bool ShowApplicationIcon { get; set; }
         public bool SettingsConfigured { get; set; }
+        public bool ShowOnlyModifiers { get; set; }
+        public bool ShowSpaceAsUnicode { get; set; }
     }
 }

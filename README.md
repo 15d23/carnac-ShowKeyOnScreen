@@ -8,7 +8,28 @@ A keyboard logging and presentation utility for presentations, screencasts, and 
 [![Build status](https://ci.appveyor.com/api/projects/status/qorhqwc2favf18r4?svg=true)](https://ci.appveyor.com/project/shiftkey/carnac)
 
 ### Installation
-You can install via ClickOnce from [http://ginnivan.blob.core.windows.net/carnac/Carnac.application](http://ginnivan.blob.core.windows.net/carnac/Carnac.application)
+
+You can install the latest version of Carnac via [Chocolatey](https://chocolatey.org/):
+
+```ps
+cinst carnac
+```
+
+Alternatively, you can grab the latest zip file from [here](https://github.com/Code52/carnac/releases/latest), unpack it and run `Setup.exe`.
+
+**Note:** Carnac requires .NET 4.5.2 to work - you can install that from [here](https://www.microsoft.com/en-au/download/details.aspx?id=42643) if you don't have it already.
+
+### Updating
+
+We use `Squirrel.Windows` to update your `carnac` application. 
+
+The application will check for updates in the background, if a new version has been released, it will automatically install the new version and once you restart `carnac` you will be up-to-date.
+
+### Usage
+
+**Enabling silent mode**
+
+If you want to stop `Carnac` from recording certain key strokes, you can enter _silent mode_ by pressing `Ctrl+Alt+P`. To exit _silent mode_ you simply press `Ctrl+Alt+P` again.
 
 ### Contributing
 
